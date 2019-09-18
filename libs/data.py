@@ -1,12 +1,18 @@
-
+import torch.utils.data as D
+import pandas as pd
+import numpy as np
+import torch
+from torchvision import models, transforms as T
+from PIL import Image
 
 class ImagesDS(D.Dataset):
-    def __init__(self, df, img_dir, mode='train', site=1, channels=[1,2,3,4,5,6]):
+    def __init__(self, df, path_data, mode='train', site=1, channels=[1,2,3,4,5,6]):
         self.records = df.to_records(index=False)
+        self.img_size = 384
         self.channels = channels
         self.site = site
         self.mode = mode
-        self.img_dir = img_dir
+        self.img_dir = path_data+'/imgs/'
         self.len = df.shape[0]
         train_controls = pd.read_csv(path_data+'/train_controls.csv')
         test_controls = pd.read_csv(path_data+'/test_controls.csv')
@@ -37,20 +43,20 @@ class ImagesDS(D.Dataset):
         paths.extend([self._get_img_path(experiment, well, plate, ch) for ch in self.channels])
 
         img = torch.cat([self._load_img_as_tensor(img_path) for img_path in paths])
-        tr_img = torch.empty((12, img_size, img_size), dtype=torch.float32)
+        tr_img = torch.empty((12, self.img_size, self.img_size), dtype=torch.float32)
 
         if self.mode == 'train':
             # randomly crop
-            row, col = np.random.randint(0, 512 - img_size + 1, 2)
-            tr_img[:6] = img[:6, row:row + img_size, col:col + img_size]
+            row, col = np.random.randint(0, 512 - self.img_size + 1, 2)
+            tr_img[:6] = img[:6, row:row + self.img_size, col:col + self.img_size]
             # randomly crop the negative control image
-            row, col = np.random.randint(0, 512 - img_size + 1, 2)
-            tr_img[6:] = img[6:, row:row + img_size, col:col + img_size]
+            row, col = np.random.randint(0, 512 - self.img_size + 1, 2)
+            tr_img[6:] = img[6:, row:row + self.img_size, col:col + self.img_size]
             return tr_img, int(self.records[index].sirna)
 
         # center crop
-        row =  col = (512 - img_size) // 2
-        tr_img[:] = img[:, row:row + img_size, col:col + img_size]
+        row =  col = (512 - self.img_size) // 2
+        tr_img[:] = img[:, row:row + self.img_size, col:col + self.img_size]
         return tr_img, rec.id_code
 
     def __len__(self):

@@ -13,14 +13,15 @@ import torchvision
 from torchvision import transforms as T
 from libs.radam import RAdam
 
+from tqdm import tqdm
 
 class trainer():
     def __init__(self, SAVE_PATH, num_epochs):
         self.SAVE_PATH = SAVE_PATH
+        self.device='cuda'
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = RAdam(model.parameters())
 
-    def train(self, model, train_loader, epoch):
+    def train(self, model, optimizer, train_loader, epoch):
         model.train()
         if epoch == 0:
             # update only the last two FC layers
@@ -36,27 +37,26 @@ class trainer():
 
         loss_sum = 0
         for input, target in tqdm(train_loader):
-            input1, input2 = input[:, :6].to(device), input[:, 6:].to(device)
-            target = target.to(device)
+            input1, input2 = input[:, :6].to(self.device), input[:, 6:].to(self.device)
+            target = target.to(self.device)
 
             output = model.head(model(input1) - model(input2))
-            loss = criterion(output, target)
+            loss = self.criterion(output, target)
             loss_sum += loss.data.cpu().numpy()
 
-            self.optimizer.zero_grad()
+            optimizer.zero_grad()
             loss.backward()
-            self.optimizer.step()
-
+            optimizer.step()
 
         return model, (loss_sum / len(train_loader))
 
-    def evaluate(self, eval_loader, model, criterion):
+    def evaluate(self, model, eval_loader):
         model.eval()
         correct = 0
         with torch.no_grad():
             for input, target in tqdm(eval_loader):
-                input1, input2 = input[:, :6].to(device), input[:, 6:].to(device)
-                target = target.to(device)
+                input1, input2 = input[:, :6].to(self.device), input[:, 6:].to(self.device)
+                target = target.to(self.device)
 
                 output = model.head(model(input1) - model(input2))
                 preds = output.argmax(axis=1)
